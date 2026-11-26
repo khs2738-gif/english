@@ -99,6 +99,16 @@ nav button.on{color:var(--blue);font-weight:700}
 :root[data-theme=dark] nav button.on{color:#8fa2ff}
 .done{text-align:center;padding:30px 10px}
 .done .n{font:700 64px/1 Outfit,sans-serif;color:var(--blue)}
+.chg{display:grid;grid-template-columns:repeat(auto-fill,minmax(50px,1fr));gap:6px;max-height:252px;overflow-y:auto;padding:3px}
+.chg button{min-height:44px;padding:4px;font:700 15px Outfit,sans-serif;border:1px solid var(--line)}
+.chg .n{background:var(--bg)}.chg .p{background:var(--blue2)}.chg .d{background:var(--blue);color:#fff}.chg .m{background:var(--ok);color:#fff}
+.chg .sel{outline:3px solid var(--coral);outline-offset:1px}
+.lg{display:inline-block;width:12px;height:12px;border-radius:4px;border:1px solid var(--line);vertical-align:-1px;margin:0 3px 0 8px}.lg.n{background:var(--bg)}.lg.p{background:var(--blue2)}.lg.d{background:var(--blue)}.lg.m{background:var(--ok)}
+.chpanel{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:14px;margin-top:12px;scroll-margin-top:12px}
+.chhead{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;text-align:center;margin-bottom:12px}
+.chhead .k{font-size:14px;color:var(--mute)}
+.nav2{background:var(--bg);border:1px solid var(--line);min-width:48px}
+.chpanel .list li{background:var(--bg)}
 .note{font-size:13px;color:var(--mute);margin-top:18px}
 @media (prefers-reduced-motion:no-preference){.card.flip{animation:pop .25s ease}@keyframes pop{from{transform:scale(.97)}to{transform:none}}}
 </style>
@@ -117,7 +127,7 @@ nav button.on{color:var(--blue);font-weight:700}
 <script src="data.js"></script>
 <script>
 {
-const VERSION='v2.0';
+const VERSION='v2.1';
 // ---------- ITEMS ----------
 // t: z = 문장 속 가려진 표현 맞히기, s = 한국어 보고 문장 말하기, v = 단어
 const D=window.DATA||{conv:[],voc:[]};
@@ -133,6 +143,11 @@ for(const lv of ['m','a']){
   ORDER['v'+lv]=items.filter(x=>x.cat==='v'&&x.lv===lv);
 }
 
+// ---------- 장(챕터) ----------
+const CH={c:10,v:20};
+function chapters(cat,lv){const l=ORDER[cat+lv],n=CH[cat],out=[];for(let i=0;i<l.length;i+=n)out.push(l.slice(i,i+n));return out}
+function chStat(l){const s=l.filter(x=>S.srs[x.id]).length,m=l.filter(x=>S.srs[x.id]&&S.srs[x.id].b>=3).length;return m===l.length?'m':s===l.length?'d':s?'p':'n'}
+
 // ---------- STATE ----------
 const KEY='engapp_v1';
 const today=()=>{const d=new Date();return Math.floor((d-d.getTimezoneOffset()*60000)/86400000)};
@@ -140,6 +155,7 @@ let S={srs:{},days:{},wrong:{},hist:[],set:{}};
 try{const r=localStorage.getItem(KEY);if(r)S=Object.assign(S,JSON.parse(r))}catch(e){}
 S.set=Object.assign({newC:10,newV:20,rate:0.9,dir:'ek',lvC:'m',lvV:'m'},S.set);
 if(S.set.newW&&!S.set._mig){S.set.newC=S.set.newW;S.set._mig=1}
+const curCh=(cat,lv)=>{const k='ch'+cat+lv,chs=chapters(cat,lv);if(!S.set[k]){const i=chs.findIndex(l=>l.some(x=>!S.srs[x.id]));S.set[k]=i<0?1:i+1}return Math.min(S.set[k],chs.length)};
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
 const IV=[0,1,3,7,14,30,60];
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -214,7 +230,7 @@ function renderCard(){
   if(qi>=Q.length){
     if(sess&&done>0){S.hist.unshift({t:sess.t0,l:sess.label,n:done,u:sess.ids.length,ok:sess.ok,ng:sess.ng,m:Math.max(1,Math.round((Date.now()-sess.t0)/60000)),q:quit?1:0});S.hist=S.hist.slice(0,1000);save()}sess=null;
     const wn=Object.keys(S.wrong).length;
-    v.innerHTML=`<div class="done"><div class="n">${done}</div><p>${quit?'장 학습했어요. 진행한 내용은 저장됐고, 남은 카드는 다음에 이어서 나와요.':'장 학습 완료!'} 연속 <b>${streak()}일</b> 째예요.</p>${wn?`<p class="hint">오답 노트에 ${wn}개가 있어요.</p><button class="big" id="wr" style="margin:10px 0">오답만 다시 풀기</button>`:''}<button class="primary big" id="home">처음으로</button></div>`;
+    v.innerHTML=`<div class="done"><div class="n">${done}</div><p>${quit?'개 학습했어요. 진행한 내용은 저장됐고, 남은 카드는 다음에 이어서 나와요.':'개 학습 완료!'} 연속 <b>${streak()}일</b> 째예요.</p>${wn?`<p class="hint">오답 노트에 ${wn}개가 있어요.</p><button class="big" id="wr" style="margin:10px 0">오답만 다시 풀기</button>`:''}<button class="primary big" id="home">처음으로</button></div>`;
     v.querySelector('#home').onclick=()=>go(back);const wr=v.querySelector('#wr');if(wr)wr.onclick=()=>startSession(wrongItems(),'오답 다시 풀기',back);
     setStreak();return;
   }
@@ -260,15 +276,34 @@ function renderCard(){
 const seg=(k,cur)=>`<div class="seg">${['m','a'].map(l=>`<button data-lv="${k}:${l}" class="${cur===l?'on':''}">${LV[l]}</button>`).join('')}</div>`;
 function hero(cat){
   const lv=cat==='c'?S.set.lvC:S.set.lvV,due=Math.min(cat==='c'?40:60,dueOf(cat,lv).length),nw=newOf(cat,lv).length,cnt=due+nw,all=ORDER[cat+lv].length,seen=seenOf(cat,lv);
-  return `<section class="hero"><div style="font-size:15px;opacity:.9">${cat==='c'?'회화':'단어'} ${LV[lv]} · 오늘 학습할 카드</div><div class="n">${cnt}장</div>
+  return `<section class="hero"><div style="font-size:15px;opacity:.9">${cat==='c'?'회화':'단어'} ${LV[lv]} · 오늘 학습할 카드</div><div class="n">${cnt}개</div>
   <div class="row"><div><b>${due}</b>복습</div><div><b>${nw}</b>새 ${cat==='c'?'문장':'단어'}</div></div>
   <button class="big" data-go="${cat}" ${cnt?'':'disabled'}>${cnt?'오늘 학습 시작':'오늘 분량 완료 🎉'}</button>
   <div class="prog">진도 ${seen} / ${all} (${Math.round(seen/Math.max(all,1)*100)}%)</div></section>`;
 }
+function chGrid(cat){
+  const lv=cat==='c'?S.set.lvC:S.set.lvV,chs=chapters(cat,lv),cur=curCh(cat,lv);
+  return `<h2>장 선택 <span class="k" style="font-size:14px;font-weight:400;color:var(--mute)">(${chs.length}장 · 1장 = ${CH[cat]}개)</span></h2>
+  <p class="hint lt" style="margin-bottom:8px"><span class="lg n"></span>안 봄 <span class="lg p"></span>보는 중 <span class="lg d"></span>다 봄 <span class="lg m"></span>익힘</p>
+  <div class="chg">${chs.map((l,i)=>`<button class="${chStat(l)}${i+1===cur?' sel':''}" data-ch="${cat}:${i+1}" aria-label="${i+1}장">${i+1}</button>`).join('')}</div>
+  <div id="chp-${cat}"></div>`;
+}
+function chPanel(v,cat){
+  const lv=cat==='c'?S.set.lvC:S.set.lvV,chs=chapters(cat,lv),n=curCh(cat,lv),l=chs[n-1],box=v.querySelector('#chp-'+cat);if(!box||!l)return;
+  const st=l.filter(x=>S.srs[x.id]).length,first=(n-1)*CH[cat]+1;
+  box.innerHTML=`<div class="chpanel"><div class="chhead"><button class="nav2" data-chmv="-1" ${n<=1?'disabled':''} aria-label="이전 장">◀</button><div><b class="en" style="font-size:22px">${n}장</b><div class="k">${cat==='v'?`${first}~${first+l.length-1}번 단어 · `:''}${l.length}개 중 ${st}개 학습</div></div><button class="nav2" data-chmv="1" ${n>=chs.length?'disabled':''} aria-label="다음 장">▶</button></div>
+   <button class="primary big" data-chgo="${cat}">${n}장 학습하기 (${l.length}개)</button>
+   ${st?`<button class="big" data-chweak="${cat}" style="margin-top:8px">${n}장에서 아직 못 익힌 것만</button>`:''}
+   <ul class="list" style="margin-top:12px">${l.map(x=>rowHtml(x)).join('')}</ul></div>`;
+  bindSpk(box);
+  box.querySelectorAll('[data-chmv]').forEach(b=>b.onclick=()=>{S.set['ch'+cat+lv]=n+ +b.dataset.chmv;save();v.querySelectorAll(`[data-ch^="${cat}:"]`).forEach(c=>c.classList.toggle('sel',c.dataset.ch===cat+':'+S.set['ch'+cat+lv]));chPanel(v,cat)});
+  box.querySelector('[data-chgo]').onclick=()=>startSession(l,`${cat==='c'?'회화':'단어'} ${LV[lv]} ${n}장`,cat==='c'?'conv':'voc');
+  const wk=box.querySelector('[data-chweak]');if(wk)wk.onclick=()=>{const w=l.filter(x=>!S.srs[x.id]||S.srs[x.id].b<3);if(w.length)startSession(w,`${cat==='c'?'회화':'단어'} ${LV[lv]} ${n}장 (못 익힌 것)`,cat==='c'?'conv':'voc');else{wk.textContent='이 장은 모두 익혔어요 🎉';wk.disabled=true}};
+}
 function wrongBtn(cat){const n=wrongItems(cat).length;return n?`<h2>오답 노트</h2><button class="big" data-wrong="${cat}" style="background:#ffe2df;color:#a32116;font-weight:700">틀린 ${n}개 다시 풀기</button>`:''}
 function vConv(){
   const lv=S.set.lvC,pats=[...new Set(items.filter(x=>x.cat==='c'&&x.lv===lv&&x.pat).map(x=>x.pat))],tps=[...new Set(items.filter(x=>x.cat==='c'&&x.lv===lv&&!x.pat).map(x=>x.tp))];
-  return seg('C',lv)+hero('c')+wrongBtn('c')+
+  return seg('C',lv)+hero('c')+wrongBtn('c')+chGrid('c')+
   `<h2>주제별 연습</h2>`+tps.map(tp=>{const l=items.filter(x=>x.cat==='c'&&x.lv===lv&&!x.pat&&x.tp===tp);return `<details><summary>${esc(tp)}<small>${l.length}문장</small></summary>
     <p><button class="primary" data-set="tp:${esc(tp)}" style="width:100%">이 주제 연습하기</button></p>
     ${l.map(x=>{const en=x.t==='z'?plainEx(x):x.en,ko=x.t==='z'?x.exko:x.ko;return `<div class="ex-row"><span class="en">${esc(en)}</span><button class="mini spk" style="grid-row:1/span 2;grid-column:2;min-height:40px;padding:6px 12px" data-s="${esc(en)}">🔊</button><span class="k">${esc(ko)}</span></div>`}).join('')}</details>`}).join('')+
@@ -281,9 +316,7 @@ function vVoc(){
   const lv=S.set.lvV;
   return seg('V',lv)+hero('v')+
   `<div class="seg" style="margin-top:12px">${[['ek','영어 → 뜻'],['ke','뜻 → 영어(말하기)']].map(([k,l])=>`<button data-dir="${k}" class="${S.set.dir===k?'on':''}">${l}</button>`).join('')}</div>`+
-  wrongBtn('v')+
-  `<h2>${LV[lv]} 단어 목록 (${ORDER['v'+lv].length}개)</h2><p class="hint lt">${lv==='m'?'가장 자주 쓰이는 1~1,500위 단어':'1,501~3,050위 단어'} · 색 점: <span class="dot" style="background:var(--coral)"></span>학습 중 <span class="dot" style="background:var(--ok)"></span>익힘</p>
-  <ul class="list" id="vl"></ul><button id="more" style="width:100%;margin-top:8px">더 보기</button>`;
+  wrongBtn('v')+chGrid('v');
 }
 let vShown=0;
 function moreWords(v){const lv=S.set.lvV,l=ORDER['v'+lv],ul=v.querySelector('#vl');const next=l.slice(vShown,vShown+100);
@@ -318,8 +351,8 @@ function histHtml(){
   const groups={};H.forEach(h=>{const d=new Date(h.t),k=`${d.getFullYear()}.${d.getMonth()+1}.${d.getDate()} (${WD[d.getDay()]})`;(groups[k]=groups[k]||[]).push(h)});
   const keys=Object.keys(groups);
   return `<div class="stats" style="margin-bottom:10px"><div class="stat"><b>${H.length}회</b><span>총 학습 횟수</span></div><div class="stat"><b>${tot.m}분</b><span>총 학습 시간</span></div><div class="stat"><b>${tot.n}</b><span>총 푼 카드</span></div><div class="stat"><b>${tot.ok+tot.ng?Math.round(tot.ok/(tot.ok+tot.ng)*100):0}%</b><span>정답률</span></div></div>`+
-   keys.slice(0,showAllHist?9999:7).map((k,i)=>{const hs=groups[k];return `<details ${i===0?'open':''}><summary>${esc(k)}<small>${hs.length}회 · ${hs.reduce((a,h)=>a+h.n,0)}장 · ${hs.reduce((a,h)=>a+h.m,0)}분</small></summary>
-     ${hs.map(h=>{const d=new Date(h.t);return `<div class="ex-row"><span>${p2(d.getHours())}:${p2(d.getMinutes())} · <b>${esc(h.l)}</b>${h.q?' <span class="k">(중간 종료)</span>':''}</span><span class="k" style="grid-row:1/span 2;grid-column:2;text-align:right">${h.m}분</span><span class="k">${h.n}장 · 정답 ${h.ok} · 오답 ${h.ng}</span></div>`}).join('')}</details>`}).join('')+
+   keys.slice(0,showAllHist?9999:7).map((k,i)=>{const hs=groups[k];return `<details ${i===0?'open':''}><summary>${esc(k)}<small>${hs.length}회 · ${hs.reduce((a,h)=>a+h.n,0)}개 · ${hs.reduce((a,h)=>a+h.m,0)}분</small></summary>
+     ${hs.map(h=>{const d=new Date(h.t);return `<div class="ex-row"><span>${p2(d.getHours())}:${p2(d.getMinutes())} · <b>${esc(h.l)}</b>${h.q?' <span class="k">(중간 종료)</span>':''}</span><span class="k" style="grid-row:1/span 2;grid-column:2;text-align:right">${h.m}분</span><span class="k">${h.n}개 · 정답 ${h.ok} · 오답 ${h.ng}</span></div>`}).join('')}</details>`}).join('')+
    (keys.length>7&&!showAllHist?'<button id="allh" style="width:100%">이전 기록 모두 보기</button>':'');
 }
 function vStats(){
@@ -358,7 +391,7 @@ function go(t){
   v.querySelectorAll('[data-dir]').forEach(b=>b.onclick=()=>{S.set.dir=b.dataset.dir;save();go(t)});
   v.querySelectorAll('[data-set]').forEach(b=>b.onclick=()=>{const [k,val]=b.dataset.set.split(/:(.*)/s);const lv=S.set.lvC;
     startSession(items.filter(x=>x.cat==='c'&&x.lv===lv&&(k==='pat'?x.pat===val:(!x.pat&&x.tp===val))),(k==='pat'?'패턴: ':'주제: ')+val,'conv')});
-  if(t==='voc'){vShown=0;moreWords(v);v.querySelector('#more')&&(v.querySelector('#more').onclick=()=>moreWords(v))}
+  if(t==='conv'||t==='voc'){const cat=t==='conv'?'c':'v';chPanel(v,cat);v.querySelectorAll('[data-ch]').forEach(b=>b.onclick=()=>{const [c,n]=b.dataset.ch.split(':');const lv=c==='c'?S.set.lvC:S.set.lvV;S.set['ch'+c+lv]=+n;save();v.querySelectorAll('[data-ch]').forEach(x=>x.classList.toggle('sel',x===b));chPanel(v,c);v.querySelector('#chp-'+c).scrollIntoView({behavior:'smooth',block:'start'})})}
   if(t==='find'){const q=v.querySelector('#fq');let tm;q.oninput=()=>{fq=q.value;clearTimeout(tm);tm=setTimeout(()=>runFind(v),200)};runFind(v);setTimeout(()=>q.focus(),50)}
   const sel=(id,k,f)=>{const e=v.querySelector('#'+id);if(e)e.onchange=()=>{S.set[k]=f(e.value);save();if(k==='voice')pickVoice()}};
   sel('nc','newC',Number);sel('nv','newV',Number);sel('rt','rate',Number);sel('vc','voice',String);
