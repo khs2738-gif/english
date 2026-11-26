@@ -36,7 +36,7 @@ button:disabled{opacity:.6;cursor:default}
 .seg button.on{background:var(--bg);color:var(--blue);box-shadow:0 1px 4px rgba(0,0,0,.12)}
 :root[data-theme=dark] .seg button.on{color:#8fa2ff}
 .hero{background:var(--blue);color:#fff;border-radius:24px;padding:22px;position:relative;overflow:hidden}
-.hero::after{content:"";position:absolute;right:-40px;top:-40px;width:160px;height:160px;border-radius:50%;background:rgba(255,255,255,.12)}
+.hero::after{content:"";position:absolute;right:-40px;top:-40px;width:160px;height:160px;border-radius:50%;background:rgba(255,255,255,.12);pointer-events:none}
 .hero .n{font:700 clamp(40px,12vw,56px)/1 Outfit,sans-serif}
 .hero .row{display:flex;gap:18px;margin:12px 0 18px;flex-wrap:wrap}
 .hero .row div{font-size:14px;opacity:.9}
@@ -109,6 +109,14 @@ nav button.on{color:var(--blue);font-weight:700}
 .chhead .k{font-size:14px;color:var(--mute)}
 .nav2{background:var(--bg);border:1px solid var(--line);min-width:48px}
 .chpanel .list li{background:var(--bg)}
+.chnav{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:8px;margin-top:10px}
+.hero .arw{background:rgba(255,255,255,.18);color:#fff;min-width:56px;min-height:56px;font-size:20px;border-radius:16px}
+.arw:disabled{opacity:.35}
+.chsel{position:relative;display:flex;justify-content:center;align-items:baseline;gap:6px;cursor:pointer}
+.chsel .caret{font-size:18px;opacity:.8}
+.chsel select{position:absolute;inset:0;opacity:0;width:100%;height:100%;min-height:0;cursor:pointer;font-size:16px}
+.sub2{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}.sub2:empty{display:none}
+.hero .sub2 button{flex:1 1 0;background:rgba(255,255,255,.18);color:#fff;font-size:15px;min-height:44px}
 .note{font-size:13px;color:var(--mute);margin-top:18px}
 @media (prefers-reduced-motion:no-preference){.card.flip{animation:pop .25s ease}@keyframes pop{from{transform:scale(.97)}to{transform:none}}}
 </style>
@@ -127,7 +135,7 @@ nav button.on{color:var(--blue);font-weight:700}
 <script src="data.js"></script>
 <script>
 {
-const VERSION='v2.1';
+const VERSION='v2.2';
 // ---------- ITEMS ----------
 // t: z = 문장 속 가려진 표현 맞히기, s = 한국어 보고 문장 말하기, v = 단어
 const D=window.DATA||{conv:[],voc:[]};
@@ -275,48 +283,30 @@ function renderCard(){
 // ---------- VIEWS ----------
 const seg=(k,cur)=>`<div class="seg">${['m','a'].map(l=>`<button data-lv="${k}:${l}" class="${cur===l?'on':''}">${LV[l]}</button>`).join('')}</div>`;
 function hero(cat){
-  const lv=cat==='c'?S.set.lvC:S.set.lvV,due=Math.min(cat==='c'?40:60,dueOf(cat,lv).length),nw=newOf(cat,lv).length,cnt=due+nw,all=ORDER[cat+lv].length,seen=seenOf(cat,lv);
-  return `<section class="hero"><div style="font-size:15px;opacity:.9">${cat==='c'?'회화':'단어'} ${LV[lv]} · 오늘 학습할 카드</div><div class="n">${cnt}개</div>
-  <div class="row"><div><b>${due}</b>복습</div><div><b>${nw}</b>새 ${cat==='c'?'문장':'단어'}</div></div>
-  <button class="big" data-go="${cat}" ${cnt?'':'disabled'}>${cnt?'오늘 학습 시작':'오늘 분량 완료 🎉'}</button>
-  <div class="prog">진도 ${seen} / ${all} (${Math.round(seen/Math.max(all,1)*100)}%)</div></section>`;
+  const lv=cat==='c'?S.set.lvC:S.set.lvV,chs=chapters(cat,lv),n=curCh(cat,lv),l=chs[n-1]||[];
+  const st=l.filter(x=>S.srs[x.id]).length,mt=l.filter(x=>S.srs[x.id]&&S.srs[x.id].b>=3).length,weak=l.filter(x=>!S.srs[x.id]||S.srs[x.id].b<3).length;
+  const due=dueOf(cat,lv).length,all=ORDER[cat+lv].length,seen=seenOf(cat,lv),first=(n-1)*CH[cat]+1;
+  return `<section class="hero"><div style="font-size:15px;opacity:.9">${cat==='c'?'회화':'단어'} ${LV[lv]} · 장을 골라 학습하세요</div>
+  <div class="chnav"><button class="arw" data-chmv="-1" ${n<=1?'disabled':''} aria-label="이전 장">◀</button>
+    <label class="chsel"><span class="n">${n}장</span><span class="caret">▾</span><select data-chsel="${cat}" aria-label="장 선택">${chs.map((c,i)=>`<option value="${i+1}" ${i+1===n?'selected':''}>${i+1}장 ${['','· 보는 중','· 다 봄','· 익힘'][['n','p','d','m'].indexOf(chStat(c))]}</option>`).join('')}</select></label>
+    <button class="arw" data-chmv="1" ${n>=chs.length?'disabled':''} aria-label="다음 장">▶</button></div>
+  <div class="row" style="justify-content:center;margin:6px 0 14px">${cat==='v'?`<div>${first}~${first+l.length-1}번</div>`:''}<div>${l.length}개 중 ${st}개 학습 · ${mt}개 익힘</div></div>
+  <button class="big" data-chgo="${cat}">${n}장 학습 시작 (${l.length}개)</button>
+  <div class="sub2">${st&&weak?`<button data-chweak="${cat}">못 익힌 것만 (${weak})</button>`:''}${due?`<button data-due="${cat}">복습할 카드 ${Math.min(due,60)}개</button>`:''}</div>
+  <div class="prog">전체 진도 ${seen} / ${all} (${Math.round(seen/Math.max(all,1)*100)}%) · ${chs.length}장 중 ${n}장</div></section>`;
 }
-function chGrid(cat){
-  const lv=cat==='c'?S.set.lvC:S.set.lvV,chs=chapters(cat,lv),cur=curCh(cat,lv);
-  return `<h2>장 선택 <span class="k" style="font-size:14px;font-weight:400;color:var(--mute)">(${chs.length}장 · 1장 = ${CH[cat]}개)</span></h2>
-  <p class="hint lt" style="margin-bottom:8px"><span class="lg n"></span>안 봄 <span class="lg p"></span>보는 중 <span class="lg d"></span>다 봄 <span class="lg m"></span>익힘</p>
-  <div class="chg">${chs.map((l,i)=>`<button class="${chStat(l)}${i+1===cur?' sel':''}" data-ch="${cat}:${i+1}" aria-label="${i+1}장">${i+1}</button>`).join('')}</div>
-  <div id="chp-${cat}"></div>`;
-}
-function chPanel(v,cat){
-  const lv=cat==='c'?S.set.lvC:S.set.lvV,chs=chapters(cat,lv),n=curCh(cat,lv),l=chs[n-1],box=v.querySelector('#chp-'+cat);if(!box||!l)return;
-  const st=l.filter(x=>S.srs[x.id]).length,first=(n-1)*CH[cat]+1;
-  box.innerHTML=`<div class="chpanel"><div class="chhead"><button class="nav2" data-chmv="-1" ${n<=1?'disabled':''} aria-label="이전 장">◀</button><div><b class="en" style="font-size:22px">${n}장</b><div class="k">${cat==='v'?`${first}~${first+l.length-1}번 단어 · `:''}${l.length}개 중 ${st}개 학습</div></div><button class="nav2" data-chmv="1" ${n>=chs.length?'disabled':''} aria-label="다음 장">▶</button></div>
-   <button class="primary big" data-chgo="${cat}">${n}장 학습하기 (${l.length}개)</button>
-   ${st?`<button class="big" data-chweak="${cat}" style="margin-top:8px">${n}장에서 아직 못 익힌 것만</button>`:''}
-   <ul class="list" style="margin-top:12px">${l.map(x=>rowHtml(x)).join('')}</ul></div>`;
-  bindSpk(box);
-  box.querySelectorAll('[data-chmv]').forEach(b=>b.onclick=()=>{S.set['ch'+cat+lv]=n+ +b.dataset.chmv;save();v.querySelectorAll(`[data-ch^="${cat}:"]`).forEach(c=>c.classList.toggle('sel',c.dataset.ch===cat+':'+S.set['ch'+cat+lv]));chPanel(v,cat)});
-  box.querySelector('[data-chgo]').onclick=()=>startSession(l,`${cat==='c'?'회화':'단어'} ${LV[lv]} ${n}장`,cat==='c'?'conv':'voc');
-  const wk=box.querySelector('[data-chweak]');if(wk)wk.onclick=()=>{const w=l.filter(x=>!S.srs[x.id]||S.srs[x.id].b<3);if(w.length)startSession(w,`${cat==='c'?'회화':'단어'} ${LV[lv]} ${n}장 (못 익힌 것)`,cat==='c'?'conv':'voc');else{wk.textContent='이 장은 모두 익혔어요 🎉';wk.disabled=true}};
+function chList(cat){
+  const lv=cat==='c'?S.set.lvC:S.set.lvV,n=curCh(cat,lv),l=chapters(cat,lv)[n-1]||[];
+  return `<h2>${n}장 내용</h2><ul class="list">${l.map(x=>rowHtml(x)).join('')}</ul>`;
 }
 function wrongBtn(cat){const n=wrongItems(cat).length;return n?`<h2>오답 노트</h2><button class="big" data-wrong="${cat}" style="background:#ffe2df;color:#a32116;font-weight:700">틀린 ${n}개 다시 풀기</button>`:''}
-function vConv(){
-  const lv=S.set.lvC,pats=[...new Set(items.filter(x=>x.cat==='c'&&x.lv===lv&&x.pat).map(x=>x.pat))],tps=[...new Set(items.filter(x=>x.cat==='c'&&x.lv===lv&&!x.pat).map(x=>x.tp))];
-  return seg('C',lv)+hero('c')+wrongBtn('c')+chGrid('c')+
-  `<h2>주제별 연습</h2>`+tps.map(tp=>{const l=items.filter(x=>x.cat==='c'&&x.lv===lv&&!x.pat&&x.tp===tp);return `<details><summary>${esc(tp)}<small>${l.length}문장</small></summary>
-    <p><button class="primary" data-set="tp:${esc(tp)}" style="width:100%">이 주제 연습하기</button></p>
-    ${l.map(x=>{const en=x.t==='z'?plainEx(x):x.en,ko=x.t==='z'?x.exko:x.ko;return `<div class="ex-row"><span class="en">${esc(en)}</span><button class="mini spk" style="grid-row:1/span 2;grid-column:2;min-height:40px;padding:6px 12px" data-s="${esc(en)}">🔊</button><span class="k">${esc(ko)}</span></div>`}).join('')}</details>`}).join('')+
-  (pats.length?`<h2>회화 패턴 ${pats.length}개</h2>`+pats.map(p=>{const l=items.filter(x=>x.pat===p);return `<details><summary class="en">${esc(p)}<small>${esc(l[0].patko)}</small></summary>
-    ${l.map(x=>`<div class="ex-row"><span class="en">${esc(x.en)}</span><button class="mini spk" style="grid-row:1/span 2;grid-column:2;min-height:40px;padding:6px 12px" data-s="${esc(x.en)}">🔊</button><span class="k">${esc(x.ko)}</span></div>`).join('')}
-    <p><button class="primary" data-set="pat:${esc(p)}" style="width:100%">이 패턴 말하기 연습</button></p></details>`}).join(''):'');
-}
+function vConv(){return seg('C',S.set.lvC)+hero('c')+wrongBtn('c')+chList('c')}
 let vq='';
 function vVoc(){
   const lv=S.set.lvV;
   return seg('V',lv)+hero('v')+
   `<div class="seg" style="margin-top:12px">${[['ek','영어 → 뜻'],['ke','뜻 → 영어(말하기)']].map(([k,l])=>`<button data-dir="${k}" class="${S.set.dir===k?'on':''}">${l}</button>`).join('')}</div>`+
-  wrongBtn('v')+chGrid('v');
+  wrongBtn('v')+chList('v');
 }
 let vShown=0;
 function moreWords(v){const lv=S.set.lvV,l=ORDER['v'+lv],ul=v.querySelector('#vl');const next=l.slice(vShown,vShown+100);
@@ -367,8 +357,6 @@ function vStats(){
   <h2>학습 이력</h2>${histHtml()}
   <h2>오답 노트 (${W.length})</h2>${W.length?`<ul class="list">${W.slice(0,100).map(x=>`<li><span class="w en">${esc(x.t==='z'?x.en:x.en)}<span class="badge">${x.cat==='c'?'회화':'단어'}</span></span><span class="k">${esc(x.ko)} · 틀린 횟수 ${S.wrong[x.id].n} · 연속 정답 ${S.wrong[x.id].ok}/2</span><button class="mini spk" data-s="${esc(x.t==='z'?plainEx(x):x.en)}" aria-label="듣기">🔊</button></li>`).join('')}</ul>`:'<p class="hint lt">아직 틀린 카드가 없어요.</p>'}
   <h2>설정</h2><div class="set">
-  <label>회화: 하루 새 문장 수<select id="nc">${[5,10,15,20].map(n=>`<option ${S.set.newC==n?'selected':''}>${n}</option>`).join('')}</select></label>
-  <label>단어: 하루 새 단어 수<select id="nv">${[10,20,30,50].map(n=>`<option ${S.set.newV==n?'selected':''}>${n}</option>`).join('')}</select></label>
   <label>읽기 속도<select id="rt">${[[0.75,'느리게'],[0.9,'조금 느리게'],[1,'보통']].map(([r,l])=>`<option value="${r}" ${S.set.rate==r?'selected':''}>${l}</option>`).join('')}</select></label>
   <label>목소리<select id="vc"><option value="">자동 선택</option>${(()=>{try{return speechSynthesis.getVoices().filter(v=>/^en/i.test(v.lang)).map(v=>`<option ${S.set.voice===v.name?'selected':''}>${esc(v.name)}</option>`).join('')}catch(e){return ''}})()}</select></label>
   <button id="test" class="spk">🔊 음성 테스트</button>
@@ -391,7 +379,14 @@ function go(t){
   v.querySelectorAll('[data-dir]').forEach(b=>b.onclick=()=>{S.set.dir=b.dataset.dir;save();go(t)});
   v.querySelectorAll('[data-set]').forEach(b=>b.onclick=()=>{const [k,val]=b.dataset.set.split(/:(.*)/s);const lv=S.set.lvC;
     startSession(items.filter(x=>x.cat==='c'&&x.lv===lv&&(k==='pat'?x.pat===val:(!x.pat&&x.tp===val))),(k==='pat'?'패턴: ':'주제: ')+val,'conv')});
-  if(t==='conv'||t==='voc'){const cat=t==='conv'?'c':'v';chPanel(v,cat);v.querySelectorAll('[data-ch]').forEach(b=>b.onclick=()=>{const [c,n]=b.dataset.ch.split(':');const lv=c==='c'?S.set.lvC:S.set.lvV;S.set['ch'+c+lv]=+n;save();v.querySelectorAll('[data-ch]').forEach(x=>x.classList.toggle('sel',x===b));chPanel(v,c);v.querySelector('#chp-'+c).scrollIntoView({behavior:'smooth',block:'start'})})}
+  if(t==='conv'||t==='voc'){const cat=t==='conv'?'c':'v',lv=cat==='c'?S.set.lvC:S.set.lvV,k='ch'+cat+lv,chs=chapters(cat,lv),n=curCh(cat,lv),l=chs[n-1]||[],nm=(cat==='c'?'회화':'단어')+' '+LV[lv];
+    const setCh=m=>{S.set[k]=Math.max(1,Math.min(chs.length,m));save();go(t)};
+    v.querySelectorAll('[data-chmv]').forEach(b=>b.onclick=()=>setCh(n+ +b.dataset.chmv));
+    const cs=v.querySelector('[data-chsel]');if(cs)cs.onchange=()=>setCh(+cs.value);
+    v.querySelector('[data-chgo]').onclick=()=>startSession(l,`${nm} ${n}장`,t);
+    const wk=v.querySelector('[data-chweak]');if(wk)wk.onclick=()=>startSession(l.filter(x=>!S.srs[x.id]||S.srs[x.id].b<3),`${nm} ${n}장 (못 익힌 것)`,t);
+    const du=v.querySelector('[data-due]');if(du)du.onclick=()=>startSession(dueOf(cat,lv).slice(0,60),`${nm} 복습`,t);
+  }
   if(t==='find'){const q=v.querySelector('#fq');let tm;q.oninput=()=>{fq=q.value;clearTimeout(tm);tm=setTimeout(()=>runFind(v),200)};runFind(v);setTimeout(()=>q.focus(),50)}
   const sel=(id,k,f)=>{const e=v.querySelector('#'+id);if(e)e.onchange=()=>{S.set[k]=f(e.value);save();if(k==='voice')pickVoice()}};
   sel('nc','newC',Number);sel('nv','newV',Number);sel('rt','rate',Number);sel('vc','voice',String);
